@@ -221,7 +221,7 @@ def fetch(subject, depot):
         pass
 
     url = get_url(subject, depot)
-    print 'fetching %s : %s' % (SUBJECTS_DESC[int(subject) - 1].encode('utf-8'), DEPOTS_DESC[int(depot) - 1]).encode('utf-8'), url
+    print 'fetching %s : %s' % (SUBJECTS_DESC[int(subject) - 1].encode('utf-8'), DEPOTS_DESC[int(depot) - 1].encode('utf-8')), url
     page_count = get_page_count(subject, depot)
     print page_count, ' pages'
     for page in range(1, page_count + 1):
