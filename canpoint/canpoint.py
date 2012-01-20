@@ -4,7 +4,9 @@
 import sys, os
 import re
 import urllib2
-from multiprocessing import Process, Queue
+import tempfile
+import shutil
+from multiprocessing import Process, JoinableQueue
 from BeautifulSoup import Tag, BeautifulSoup as Soup
 
 DOMAIN = 'http://gzt.canpoint.cn'
@@ -96,8 +98,8 @@ def save_image(img_url, img_path, retry=3):
     except:
         if retry <= 0:
             print 'Failed to download image: %s' % img_url
-        save_image(img_url, img_path, retry-1)
-        return
+            return
+        return save_image(img_url, img_path, retry-1)
     else:
         if img_raw:
             with open(img_path, 'w') as f:
@@ -106,12 +108,15 @@ def save_image(img_url, img_path, retry=3):
             print 'Image with empty content: %s' % img_url
 
 def serve_image_downloader(q):
+    sys.stdout = open('image.log', 'a')
     while True:
         img_url, img_path = q.get()
         if os.path.exists(img_path):
+            q.task_done()
             continue
         img_raw = None
         save_image(img_url, img_path)
+        q.task_done()
 
 def fetch_html(url):
     while True:
@@ -170,8 +175,9 @@ def parse(url, subject, depot):
             img_url = img['src']
             img_name = img_url.split('/')[-1]
             fpath = os.path.join(str(subject), depot, img_name)
-            img_queue.put((img_url, fpath))
+            img_queue.put_nowait((img_url, fpath))
             img['src'] = img_name
+            img['alt'] = img_url
         # yield cleaned html
         yield str(tbl).replace("&nbsp;", '')
 
@@ -189,12 +195,23 @@ def save_page(subject, depot, page):
     print 'page %s...' % page,
     fpath = os.path.join(str(subject), depot, '%s.html' % page)
     if os.path.exists(fpath):
-        print 'already exists'
-        return
+        soup = Soup(open(fpath).read())
+        for img in soup.findAll('img'):
+            img_url = img['src']
+            img_name = img_url.split('/')[-1]
+            img_path = os.path.join(str(subject), depot, img_name)
+            if not os.path.exists(img_path):
+                print 'reparsing...', 
+                break
+        else:
+            print 'already exists'
+            return
     url = get_url(subject, depot, page)
-    for rslt in parse(url, subject, depot):
-        with open(fpath, 'a') as f:
+    fd, tmp_fname = tempfile.mkstemp(suffix='.html', prefix='canpoint')
+    with os.fdopen(fd, 'a') as f:
+        for rslt in parse(url, subject, depot):
             f.write(rslt)
+    shutil.copyfile(tmp_fname, fpath)
     print 'done'
 
 def iter_tempfiles(folder):
@@ -228,7 +245,7 @@ def fetch(subject, depot):
         save_page(subject, depot, page)
     print 'done'
 
-img_queue = Queue()
+img_queue = JoinableQueue()
 
 def main(options, args):
     p = Process(target=serve_image_downloader, args=(img_queue,))
@@ -245,6 +262,9 @@ def main(options, args):
             for depot in DEPOTS:
                 fetch(subject, str(depot))
 
+    img_queue.join()
+
+
 if __name__ == '__main__':
     from optparse import OptionParser 
     parser = OptionParser()
@@ -259,7 +279,6 @@ if __name__ == '__main__':
 
     if options.merge:
         merge()
-        sys.exit()
     else:
         main(options, args)
         merge()
