@@ -108,10 +108,12 @@ def xvfb(f):
         if not IS_WINDOWS:
             p, s = vfb()
 
-        f(*args, **kws)
+        rslt = f(*args, **kws)
 
         if not IS_WINDOWS:
             p.terminate()
+
+        return rslt
 
     return func
 
