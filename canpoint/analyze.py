@@ -47,7 +47,7 @@ def get_capture(content, folder, images):
     return base64.b64encode(open(imgpath).read())
 
 
-def extract_data(fpath):
+def extract_data(fpath, subject):
     """Given a downloaded html page, extracts the data into dicts then yield them """
     soup = Soup(open(fpath).read())
     #div = soup.find('div', {'id': 'Kuang'})
@@ -56,6 +56,7 @@ def extract_data(fpath):
         trs = tbl.findAll('tr', recursive=False)
 
         # build the json data
+        rslt['subject'] = subject
         # 知识点: tags
         li = []
         s = trs[0].findAll('td')[-1].text
@@ -121,13 +122,13 @@ def main():
         if not os.path.exists(fpath):
             print 'not found'
             continue
-        for x in extract_data(fpath):
+        for x in extract_data(fpath, SUBJECTS_DESC[int(subject) - 1]):
             yield x
         print 'done'
 
 
 def test(fpath):
-    for x in extract_data(fpath):
+    for x in extract_data(fpath, SUBJECTS_DESC[2]):
         print json.dumps(x, ensure_ascii=False, sort_keys=True, indent=4).encode('utf8')
         with open('test_output', 'w') as f:
             print >>f, json.dumps(x, ensure_ascii=False, sort_keys=True, indent=4).encode('utf8')
