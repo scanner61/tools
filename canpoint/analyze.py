@@ -4,6 +4,7 @@
 import sys, os
 import re
 import base64
+import itertools
 from multiprocessing import Process, Queue
 from BeautifulSoup import Tag, BeautifulSoup as Soup
 try:
@@ -11,7 +12,40 @@ try:
 except:
     import json
 
-from canpoint import SUBJECTS, SUBJECTS_DESC, DEPOTS, DEPOTS_DESC
+from canpoint import SUBJECTS, SUBJECTS_DESC, DEPOTS, DEPOTS_DESC, TEMPLATE
+
+from task.formcapture import generate_capture, xvfb
+
+exepath = os.path.abspath('./tools/cutycapt')
+
+@xvfb
+def get_capture(content, folder, images):
+    try:
+        os.makedirs('./tmp')
+    except OSError:
+        pass
+
+    for img in images:
+        with open(os.path.join('./tmp', img['name']), 'wb') as f:
+            f.write(base64.b64decode(img['b64']))
+
+    htmlpath = os.path.abspath('./tmp/tmp.html')
+    with open(htmlpath, 'w') as f:
+        f.write(TEMPLATE % content)
+
+    imgpath = os.path.abspath('./tmp/tmp.png')
+    with open(imgpath, 'w') as f:
+        f.write('')
+
+    try:
+        if not generate_capture(exepath, htmlpath, imgpath):
+            return ''
+    except:
+        return ''
+    if not os.path.exists(imgpath):
+        return ''
+    return base64.b64encode(open(imgpath).read())
+
 
 def extract_data(fpath):
     """Given a downloaded html page, extracts the data into dicts then yield them """
@@ -73,11 +107,15 @@ def extract_data(fpath):
                     'b64': base64.b64encode(f.read())
                 })
         rslt['images'] = imgs
+        capture_b64 = get_capture(rslt['content'], os.path.dirname(fpath), imgs)
+        if not capture_b64:
+            print 'failed get capture for %s' % fpath
+        rslt['content_capture_b64'] = capture_b64
 
         yield rslt
 
 def main():
-    for subject, depot in zip(SUBJECTS, DEPOTS):
+    for subject, depot in itertools.product(SUBJECTS, DEPOTS):
         fpath = os.path.normpath(os.path.join(str(subject), str(depot), 'index.html'))
         print fpath,
         if not os.path.exists(fpath):
@@ -106,7 +144,7 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
 
     if options.test:
-        test('3/1/2.html')
+        test('3/1/3.html')
 
     elif options.mongo:
         import pymongo

@@ -73,7 +73,7 @@ TEMPLATE = """
 		background:#ffffff;
 	}
 	
-	#Kuang{width:725px; background:#d7e4ff; padding:10px;}
+	#Kuang{width:725px; background:#ffffff; padding:10px;}
 	.B_K{background:#024c82; line-height:25px; font:"宋体"; color:#000;font-size:12px;}
 	.b_j{background:#b1c3f2; text-align:center; font-weight:bold;}
 	.b_j1{background:#cedbfd; text-align:center; font-weight:bold;}
